@@ -1,0 +1,43 @@
+name: CI
+
+# run on every push and on pull requests
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # a real PostgreSQL database for the integration test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ticketdb_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      - name: Run tests
+        run: mvn -B test
+
+      - name: Build Docker image
+        run: docker build -t ticket-booking-api:${{ github.sha }} .
