@@ -3,6 +3,7 @@ package com.utkarsh.ticketbooking.exception;
 import com.utkarsh.ticketbooking.dto.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
@@ -57,6 +58,13 @@ public class GlobalExceptionHandler {
             message.append(fieldError.getField()).append(": ").append(fieldError.getDefaultMessage());
         }
         ErrorResponse error = new ErrorResponse(400, message.toString());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    // the JSON body is broken or has a wrong value (for example an unknown role)
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleUnreadableBody(HttpMessageNotReadableException ex) {
+        ErrorResponse error = new ErrorResponse(400, "Request body is missing or not valid JSON");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 }
