@@ -20,4 +20,11 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     @Query("UPDATE Event e SET e.availableSeats = e.availableSeats - 1 "
             + "WHERE e.id = :eventId AND e.availableSeats > 0")
     int decrementAvailableSeats(@Param("eventId") Long eventId);
+
+    // Gives one seat back when a booking is cancelled.
+    // The extra condition makes sure we never go above the total seats.
+    @Modifying
+    @Query("UPDATE Event e SET e.availableSeats = e.availableSeats + 1 "
+            + "WHERE e.id = :eventId AND e.availableSeats < e.totalSeats")
+    int incrementAvailableSeats(@Param("eventId") Long eventId);
 }

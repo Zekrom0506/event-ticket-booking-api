@@ -11,10 +11,13 @@ import com.utkarsh.ticketbooking.model.User;
 import com.utkarsh.ticketbooking.repository.BookingRepository;
 import com.utkarsh.ticketbooking.repository.EventRepository;
 import com.utkarsh.ticketbooking.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class BookingService {
@@ -67,6 +70,43 @@ public class BookingService {
 
         Booking saved = bookingRepository.save(booking);
         return toResponse(saved);
+    }
+
+    @Transactional
+    public BookingResponse cancelBooking(Long bookingId, String userEmail) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id " + bookingId));
+
+        // a user can only cancel their own booking
+        if (!booking.getUser().getEmail().equals(userEmail)) {
+            throw new AccessDeniedException("You can only cancel your own bookings");
+        }
+
+        // same idea as booking: the status check and the update are one SQL statement
+        int updatedRows = bookingRepository.cancelIfConfirmed(bookingId);
+        if (updatedRows == 0) {
+            throw new BadRequestException("This booking is already cancelled");
+        }
+
+        // give the seat back to the event
+        eventRepository.incrementAvailableSeats(booking.getEvent().getId());
+
+        // the update query above does not change the object we loaded earlier,
+        // so set the status here too for the response
+        BookingResponse response = toResponse(booking);
+        response.setStatus(BookingStatus.CANCELLED.name());
+        return response;
+    }
+
+    @Transactional(readOnly = true)
+    public List<BookingResponse> getMyBookings(String userEmail) {
+        User user = findUserByEmail(userEmail);
+
+        List<BookingResponse> responses = new ArrayList<>();
+        for (Booking booking : bookingRepository.findByUserId(user.getId())) {
+            responses.add(toResponse(booking));
+        }
+        return responses;
     }
 
     private User findUserByEmail(String email) {
