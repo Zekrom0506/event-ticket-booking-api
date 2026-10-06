@@ -37,6 +37,8 @@ public class SecurityConfig {
         http.authorizeHttpRequests(auth -> auth
                 // register and login are open to everyone
                 .requestMatchers("/api/auth/**").permitAll()
+                // Swagger UI and the API docs
+                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                 // "my events" needs a login, so it has to come before the public rule below
                 .requestMatchers(HttpMethod.GET, "/api/events/mine").authenticated()
                 // anyone can browse events without logging in
