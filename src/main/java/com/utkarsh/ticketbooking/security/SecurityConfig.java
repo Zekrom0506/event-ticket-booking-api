@@ -37,6 +37,8 @@ public class SecurityConfig {
         http.authorizeHttpRequests(auth -> auth
                 // register and login are open to everyone
                 .requestMatchers("/api/auth/**").permitAll()
+                // "my events" needs a login, so it has to come before the public rule below
+                .requestMatchers(HttpMethod.GET, "/api/events/mine").authenticated()
                 // anyone can browse events without logging in
                 .requestMatchers(HttpMethod.GET, "/api/events", "/api/events/**").permitAll()
                 // everything else needs a valid token
