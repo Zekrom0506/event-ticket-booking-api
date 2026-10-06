@@ -2,11 +2,15 @@ package com.utkarsh.ticketbooking.service;
 
 import com.utkarsh.ticketbooking.dto.EventRequest;
 import com.utkarsh.ticketbooking.dto.EventResponse;
+import com.utkarsh.ticketbooking.exception.BadRequestException;
 import com.utkarsh.ticketbooking.exception.ResourceNotFoundException;
+import com.utkarsh.ticketbooking.model.BookingStatus;
 import com.utkarsh.ticketbooking.model.Event;
 import com.utkarsh.ticketbooking.model.User;
+import com.utkarsh.ticketbooking.repository.BookingRepository;
 import com.utkarsh.ticketbooking.repository.EventRepository;
 import com.utkarsh.ticketbooking.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,10 +22,14 @@ public class EventService {
 
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
+    private final BookingRepository bookingRepository;
 
-    public EventService(EventRepository eventRepository, UserRepository userRepository) {
+    public EventService(EventRepository eventRepository,
+                        UserRepository userRepository,
+                        BookingRepository bookingRepository) {
         this.eventRepository = eventRepository;
         this.userRepository = userRepository;
+        this.bookingRepository = bookingRepository;
     }
 
     @Transactional
@@ -67,6 +75,49 @@ public class EventService {
             responses.add(toResponse(event));
         }
         return responses;
+    }
+
+    @Transactional
+    public EventResponse updateEvent(Long eventId, EventRequest request, String organiserEmail) {
+        Event event = findEventById(eventId);
+        checkOwnership(event, organiserEmail);
+
+        // Changing the seat count after creation is not allowed. It keeps the seat
+        // counter simple, because only bookings and cancellations ever change it.
+        if (request.getTotalSeats() != event.getTotalSeats()) {
+            throw new BadRequestException("Total seats cannot be changed after the event is created");
+        }
+
+        event.setTitle(request.getTitle());
+        event.setDescription(request.getDescription());
+        event.setVenue(request.getVenue());
+        event.setEventDate(request.getEventDate());
+
+        Event saved = eventRepository.save(event);
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public void deleteEvent(Long eventId, String organiserEmail) {
+        Event event = findEventById(eventId);
+        checkOwnership(event, organiserEmail);
+
+        long confirmedBookings = bookingRepository.countByEventIdAndStatus(eventId, BookingStatus.CONFIRMED);
+        if (confirmedBookings > 0) {
+            throw new BadRequestException("Cannot delete an event that has confirmed bookings");
+        }
+
+        // remove old cancelled bookings first, otherwise the foreign key blocks the delete
+        bookingRepository.deleteByEventId(eventId);
+        eventRepository.delete(event);
+    }
+
+    // An organiser is only allowed to change events that they created
+    private void checkOwnership(Event event, String organiserEmail) {
+        String ownerEmail = event.getOrganiser().getEmail();
+        if (!ownerEmail.equals(organiserEmail)) {
+            throw new AccessDeniedException("You can only modify your own events");
+        }
     }
 
     private Event findEventById(Long eventId) {

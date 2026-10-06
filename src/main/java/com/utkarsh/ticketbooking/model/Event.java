@@ -35,8 +35,10 @@ public class Event {
     @Column(nullable = false)
     private int totalSeats;
 
-    // goes down by 1 on every booking and up by 1 on every cancellation
-    @Column(nullable = false)
+    // Goes down by 1 on every booking and up by 1 on every cancellation.
+    // updatable = false means a normal save() of the event never rewrites this column,
+    // so editing an event cannot overwrite the seat count with an old value.
+    @Column(nullable = false, updatable = false)
     private int availableSeats;
 
     // the organiser who created this event
