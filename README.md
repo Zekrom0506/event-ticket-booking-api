@@ -167,3 +167,9 @@ src/main/java/com/utkarsh/ticketbooking
 - The total seats of an event cannot be changed after it is created.
 - Each booking is for one seat only.
 - All dates and times are in UTC.
+
+### Deployment screenshots
+
+The API running on an AWS EC2 instance (t3.micro, Ubuntu 24.04) with Docker Compose.
+The instance was terminated afterwards to avoid costs.
+screenshots at docs/screenshots/
